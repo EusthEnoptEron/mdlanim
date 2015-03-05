@@ -20,7 +20,15 @@ namespace mdlanim
             }
             var mdl0path = args.FirstOrDefault(f => f.EndsWith(".mdl0"));
             var anims = args.Where(f => f.EndsWith(".chr0"));
+            var textures = args.Where(f => f.EndsWith(".tex0"));
             var pac   = args.FirstOrDefault(f => f.EndsWith(".pac"));
+
+
+            // Convert textures
+            foreach (var tex in textures.Select(t => ((TEX0Node)NodeFactory.FromFile(null, t))))
+            {
+                tex.Export(Path.GetFileNameWithoutExtension(tex.FilePath) + ".png");
+            }
 
             if (mdl0path != null)
             {
