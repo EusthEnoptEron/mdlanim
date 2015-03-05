@@ -14,6 +14,10 @@ namespace mdlanim
     {
         static void Main(string[] args)
         {
+            if (args.Length == 1 && Directory.Exists(args[0]))
+            {
+                args = Directory.GetFiles(args[0]);
+            }
             var mdl0path = args.FirstOrDefault(f => f.EndsWith(".mdl0"));
             var anims = args.Where(f => f.EndsWith(".chr0"));
             var pac   = args.FirstOrDefault(f => f.EndsWith(".pac"));
