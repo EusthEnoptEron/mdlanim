@@ -16,6 +16,8 @@ namespace mdlanim
     {
         static void Main(string[] args)
         {
+            //args = new string[] { @"E:\Rips\Xenoblade\output\1006830866.kyp" };
+            //args = new string[] { @"D:\Games\ISOs\tos\tos_clean\DATA\files\BATTLE\CHARACTER\pre.bin" };
             if (args.Length == 1 && Directory.Exists(args[0]))
             {
                 args = Directory.GetFiles(args[0]);
@@ -24,6 +26,7 @@ namespace mdlanim
             var anims = args.Where(f => f.EndsWith(".chr0"));
             var textures = args.Where(f => f.EndsWith(".tex0"));
             var pacList   = args.Where(f => f.EndsWith(".pac"));
+            var binList   = args.Where(f => f.EndsWith(".bin"));
             var brresList = args.Where(f => f.EndsWith(".brres") || f.EndsWith(".kyp") || f.EndsWith(".mca"));
 
             // Convert textures
@@ -44,7 +47,9 @@ namespace mdlanim
                 // Write animations    
                 Collada.Serialize(model, animations.ToArray(), 60f, outputPath);
             }
-            else if(pacList.Count() > 0) {
+            else
+            {
+
                 foreach (var pac in pacList)
                 {
                     var node = ((ARCNode)NodeFactory.FromFile(null, pac));
@@ -52,9 +57,6 @@ namespace mdlanim
                     node.ExtractToFolder(pac + ".extracted");
                 }
 
-            }
-            else if (brresList.Count() > 0)
-            {
                 foreach (var brres in brresList)
                 {
                     Console.WriteLine("Extracting {0}", Path.GetFileName(brres));
@@ -62,36 +64,25 @@ namespace mdlanim
                     {
                         if (brres.EndsWith(".kyp"))
                         {
-                            using(var fileMap = FileMap.FromFile(brres))
+                            using (var fileMap = FileMap.FromFile(brres))
                             {
                                 // Skip header
                                 var ds = new DataSource(fileMap);
-                                var startAddress = ds.Address;
-                                var endAddress =  startAddress + ds.Length;
-                                
-                                ds.Address += 0x18;
+                                var endAddress = ds.Address + ds.Length;
+
+                                var address = ds.Address;
+
+                                address += 0x18;
                                 StringBuilder sb = new StringBuilder();
-                                while (ds.Address.Byte != 0)
+                                while (address.Byte != 0)
                                 {
-                                    sb.Append((char)ds.Address.Byte);
-                                    ds.Address++;
+                                    sb.Append((char)address.Byte);
+                                    address++;
                                 }
-                                
-                                ds.Address = startAddress + 0x60;
 
-                                string path = Path.Combine( Path.GetDirectoryName(brres), sb.ToString());
-                                Console.WriteLine("   {0} -> {1}", Path.GetFileName(brres), sb.ToString());
+                                string path = Path.Combine(Path.GetDirectoryName(brres), sb.ToString());
 
-                                ((BRRESNode)NodeFactory.FromSource(null, ds)).ExportToFolder(path, ".png");
-                                
-                                // Look for CHR0 files
-                                while(SearchForString(ref ds.Address, endAddress, "CHR0"))
-                                {
-                                    Console.WriteLine("found anim");
-                                    var chr0 = ((CHR0Node)NodeFactory.FromSource(null, ds));
-                                    Console.WriteLine("   Export {0}", chr0.Name);
-                                    chr0.Export(Path.Combine(path, chr0.Name + ".chr0" ));
-                                }
+                                ExportBrres(address, endAddress, path);
                             }
 
                         }
@@ -104,7 +95,7 @@ namespace mdlanim
                                 //var startAddress = ds.Address;
 
                                 // bres
-                                while(ds.Address.Int != ((0x62 << 24) | (0x72 << 16) | (0x65 << 8) | 0x73))
+                                while (ds.Address.Int != ((0x62 << 24) | (0x72 << 16) | (0x65 << 8) | 0x73))
                                 //while (!(ds.Address.Byte == 0x62 && (ds.Address + 1).Byte == 0x72 && (ds.Address + 2).Byte == 0x65 && (ds.Address + 3).Byte == 0x73))
                                 {
                                     ds.Address++;
@@ -124,9 +115,25 @@ namespace mdlanim
                     }
 
                 }
-            } else
+
+
+                foreach (var bin in binList)
+                {
+                    using (var fileMap = FileMap.FromFile(bin))
+                    {
+                        ExportBrres(fileMap.Address, fileMap.Address + fileMap.Length, bin + ".exported");
+                    }
+                }
+            }
+            
+        }
+
+        static void ExportBrres(VoidPtr address, VoidPtr endAddress, string path)
+        {
+            while (SearchForString(ref address, endAddress, "bres"))
             {
-                Console.Error.WriteLine("No mdl0 specified!");
+                var node = ((BRRESNode)NodeFactory.FromAddress(null, address, (int)(endAddress - address)));
+                node.ExportToFolder(path, ".png");
             }
         }
 
