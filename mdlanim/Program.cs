@@ -7,6 +7,7 @@ using System.Linq;
 using BrawlLib.SSBB.ResourceNodes;
 using System.IO;
 using BrawlLib.IO;
+using System.Runtime.ExceptionServices;
 
 
 namespace mdlanim
@@ -66,7 +67,8 @@ namespace mdlanim
                                 // Skip header
                                 var ds = new DataSource(fileMap);
                                 var startAddress = ds.Address;
-
+                                var endAddress =  startAddress + ds.Length;
+                                
                                 ds.Address += 0x18;
                                 StringBuilder sb = new StringBuilder();
                                 while (ds.Address.Byte != 0)
@@ -81,6 +83,15 @@ namespace mdlanim
                                 Console.WriteLine("   {0} -> {1}", Path.GetFileName(brres), sb.ToString());
 
                                 ((BRRESNode)NodeFactory.FromSource(null, ds)).ExportToFolder(path, ".png");
+                                
+                                // Look for CHR0 files
+                                while(SearchForString(ref ds.Address, endAddress, "CHR0"))
+                                {
+                                    Console.WriteLine("found anim");
+                                    var chr0 = ((CHR0Node)NodeFactory.FromSource(null, ds));
+                                    Console.WriteLine("   Export {0}", chr0.Name);
+                                    chr0.Export(Path.Combine(path, chr0.Name + ".chr0" ));
+                                }
                             }
 
                         }
@@ -116,6 +127,33 @@ namespace mdlanim
             } else
             {
                 Console.Error.WriteLine("No mdl0 specified!");
+            }
+        }
+
+
+        [HandleProcessCorruptedStateExceptions]
+        static bool SearchForString(ref VoidPtr addr, VoidPtr endAddr, string str) {
+            byte[] bytes = Encoding.ASCII.GetBytes(str);
+
+            bool ok = false;
+
+            try
+            {
+                while (!ok && (int)(endAddr - addr) > bytes.Length )
+                {
+                    addr++;
+                    ok = true;
+                    for (int i = 0; i < bytes.Length; i++)
+                    {
+                        if ((addr + i).Byte != bytes[i]) { ok = false; break; }
+                    }
+                }
+
+                return ok;
+            }
+            catch (Exception)
+            {
+                return false;
             }
         }
     }
