@@ -23,7 +23,7 @@ namespace mdlanim
             var anims = args.Where(f => f.EndsWith(".chr0"));
             var textures = args.Where(f => f.EndsWith(".tex0"));
             var pacList   = args.Where(f => f.EndsWith(".pac"));
-            var brresList = args.Where(f => f.EndsWith(".brres") || f.EndsWith(".kyp"));
+            var brresList = args.Where(f => f.EndsWith(".brres") || f.EndsWith(".kyp") || f.EndsWith(".mca"));
 
             // Convert textures
             foreach (var tex in textures.Select(t => ((TEX0Node)NodeFactory.FromFile(null, t))))
@@ -83,6 +83,26 @@ namespace mdlanim
                                 ((BRRESNode)NodeFactory.FromSource(null, ds)).ExportToFolder(path, ".png");
                             }
 
+                        }
+                        else if (brres.EndsWith(".mca"))
+                        {
+                            using (var fileMap = FileMap.FromFile(brres))
+                            {
+                                // Skip header
+                                var ds = new DataSource(fileMap);
+                                //var startAddress = ds.Address;
+
+                                // bres
+                                while(ds.Address.Int != ((0x62 << 24) | (0x72 << 16) | (0x65 << 8) | 0x73))
+                                //while (!(ds.Address.Byte == 0x62 && (ds.Address + 1).Byte == 0x72 && (ds.Address + 2).Byte == 0x65 && (ds.Address + 3).Byte == 0x73))
+                                {
+                                    ds.Address++;
+                                }
+
+                                //Console.Write("FOUND at " +((int)(ds.Address - startAddress)));
+
+                                ((BRRESNode)NodeFactory.FromSource(null, ds)).ExportToFolder(brres + ".extracted", ".png");
+                            }
                         }
                         else
                             ((BRRESNode)NodeFactory.FromFile(null, brres)).ExportToFolder(brres + ".extracted", ".png");
