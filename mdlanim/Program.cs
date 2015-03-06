@@ -6,6 +6,7 @@ using BrawlLib.Modeling;
 using System.Linq;
 using BrawlLib.SSBB.ResourceNodes;
 using System.IO;
+using BrawlLib.IO;
 
 
 namespace mdlanim
@@ -21,8 +22,8 @@ namespace mdlanim
             var mdl0path = args.FirstOrDefault(f => f.EndsWith(".mdl0"));
             var anims = args.Where(f => f.EndsWith(".chr0"));
             var textures = args.Where(f => f.EndsWith(".tex0"));
-            var pac   = args.FirstOrDefault(f => f.EndsWith(".pac"));
-
+            var pacList   = args.Where(f => f.EndsWith(".pac"));
+            var brresList = args.Where(f => f.EndsWith(".brres") || f.EndsWith(".kyp"));
 
             // Convert textures
             foreach (var tex in textures.Select(t => ((TEX0Node)NodeFactory.FromFile(null, t))))
@@ -42,11 +43,57 @@ namespace mdlanim
                 // Write animations    
                 Collada.Serialize(model, animations.ToArray(), 60f, outputPath);
             }
-            else if(pac != null) {
-                ((ARCNode)NodeFactory.FromFile(null, pac)).ExtractToFolder(Path.GetFileNameWithoutExtension(pac) + ".extracted");
+            else if(pacList.Count() > 0) {
+                foreach (var pac in pacList)
+                {
+                    var node = ((ARCNode)NodeFactory.FromFile(null, pac));
 
-            } 
-            else
+                    node.ExtractToFolder(pac + ".extracted");
+                }
+
+            }
+            else if (brresList.Count() > 0)
+            {
+                foreach (var brres in brresList)
+                {
+                    Console.WriteLine("Extracting {0}", Path.GetFileName(brres));
+                    try
+                    {
+                        if (brres.EndsWith(".kyp"))
+                        {
+                            using(var fileMap = FileMap.FromFile(brres))
+                            {
+                                // Skip header
+                                var ds = new DataSource(fileMap);
+                                var startAddress = ds.Address;
+
+                                ds.Address += 0x18;
+                                StringBuilder sb = new StringBuilder();
+                                while (ds.Address.Byte != 0)
+                                {
+                                    sb.Append((char)ds.Address.Byte);
+                                    ds.Address++;
+                                }
+                                
+                                ds.Address = startAddress + 0x60;
+
+                                string path = Path.Combine( Path.GetDirectoryName(brres), sb.ToString());
+                                Console.WriteLine("   {0} -> {1}", Path.GetFileName(brres), sb.ToString());
+
+                                ((BRRESNode)NodeFactory.FromSource(null, ds)).ExportToFolder(path, ".png");
+                            }
+
+                        }
+                        else
+                            ((BRRESNode)NodeFactory.FromFile(null, brres)).ExportToFolder(brres + ".extracted", ".png");
+                    }
+                    catch (Exception e)
+                    {
+                        Console.Error.WriteLine(e.Message);
+                    }
+
+                }
+            } else
             {
                 Console.Error.WriteLine("No mdl0 specified!");
             }
